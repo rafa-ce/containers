@@ -1,0 +1,22 @@
+version: "3.4"
+
+services:
+  catalogoapi:
+    image: ${DOCKER_REGISTRY-}catalogoapi
+    build:
+      context: .
+      dockerfile: .
+    ports:
+      - "8081:80"
+    depends_on:
+      - postgresql
+
+  postgresql:
+    image: postgres:latest
+    restart: always
+    environment:
+      - POSTGRES_PASSWORD=Postgres123
+    volumes:
+      - G:\volumes\postgresql:/var/lib/postgresql/data
+    ports:
+      - "5436:5432"
