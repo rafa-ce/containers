@@ -1,15 +1,58 @@
+using System.Text;
 using CatalogoApi.Data;
 using CatalogoApi.Models;
+using CatalogoApi.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.AddSingleton<ITokenService>(new TokenService());
+builder.Services.AddAuthentication
+    (JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(options => {
+            options.TokenValidationParameters = new TokenValidationParameters 
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+
+                ValidIssuer = builder.Configuration["Jwt:Issuer"],
+                ValidAudience = builder.Configuration["Jwt:Audience"],
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+            };
+        });
+builder.Services.AddAuthorization();
+
 var app = builder.Build();
 
 app.MapGet("/", () => "Início");
+
+#region Login
+app.MapPost("/login", [AllowAnonymous] (UserModel userModel, ITokenService tokenService) => {
+    if (userModel is null)
+        return Results.BadRequest("Objeto inválido");
+    
+    if (userModel.UserName.Equals("admin") && userModel.Password.Equals("Numsey#123"))
+    {
+        var tokenString = tokenService.GerarToken(
+            app.Configuration["Jwt:Key"], app.Configuration["Jwt:Issuer"], app.Configuration["Jwt:Audience"], userModel
+        );
+
+        return Results.Ok(new { token = tokenString });
+    }
+    else
+    {
+        return Results.BadRequest("Usuário ou senha inválidos");
+    }
+});
+#endregion
 
 #region Categorias
 app.MapPost("/categorias", async (Categoria categoria, AppDbContext db) => {
@@ -20,7 +63,8 @@ app.MapPost("/categorias", async (Categoria categoria, AppDbContext db) => {
 });
 
 app.MapGet("/categorias", async (AppDbContext db) =>
-    await db.Categorias.ToListAsync());
+    await db.Categorias.ToListAsync())
+    .RequireAuthorization();;
 
 app.MapGet("/categorias/{id:int}", async (int id, AppDbContext db) => {
     return await db.Categorias.FindAsync(id)
@@ -117,5 +161,8 @@ app.MapDelete("/produtos/{id:int}", async (int id, AppDbContext db) => {
     return Results.NoContent();
 });
 #endregion
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.Run();
