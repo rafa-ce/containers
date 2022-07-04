@@ -16,8 +16,7 @@ public static class CategoriasEndpoints
         });
 
         app.MapGet("/categorias", async (AppDbContext db) =>
-            await db.Categorias.ToListAsync())
-            .RequireAuthorization();;
+            await db.Categorias.ToListAsync());
 
         app.MapGet("/categorias/{id:int}", async (int id, AppDbContext db) => {
             return await db.Categorias.FindAsync(id)

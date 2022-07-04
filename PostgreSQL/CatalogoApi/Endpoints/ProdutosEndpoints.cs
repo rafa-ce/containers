@@ -16,7 +16,8 @@ public static class ProdutosEndpoints
         });
 
         app.MapGet("/produtos", async (AppDbContext db) => 
-            await db.Produtos.ToListAsync());
+            await db.Produtos.ToListAsync())
+            .RequireAuthorization();
 
         app.MapGet("/produtos/{id:int}", async (int id, AppDbContext db) => {
             return await db.Produtos.FindAsync(id)
